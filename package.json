@@ -1,0 +1,29 @@
+{
+  "name": "spring-boot-platform-agents",
+  "version": "0.3.0",
+  "description": "Vendor-neutral AI engineering platform for building production-grade Spring Boot services",
+  "type": "module",
+  "bin": {
+    "sbp-agents": "./bin/cli.mjs",
+    "spring-boot-platform-agents": "./bin/cli.mjs"
+  },
+  "files": [
+    "bin/",
+    "AGENTS.md",
+    "opencode.json",
+    "agents/",
+    "skills/",
+    "playbooks/",
+    "standards/",
+    "templates/",
+    "docs/adr/"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anomalyco/spring-boot-platform-agents.git"
+  },
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20"
+  }
+}
