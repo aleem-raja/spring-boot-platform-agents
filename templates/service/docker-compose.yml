@@ -1,0 +1,57 @@
+version: "4"
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/{{service-name}}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-service}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-service}
+      OTEL_SERVICE_NAME: {{service-name}}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://collector:4318
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: {{service-name}}
+      POSTGRES_USER: ${DB_USER:-service}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-service}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-service}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ["--config=/etc/otel-collector-config.yml"]
+    volumes:
+      - ./otel-collector-config.yml:/etc/otel-collector-config.yml
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+
+volumes:
+  pgdata:
