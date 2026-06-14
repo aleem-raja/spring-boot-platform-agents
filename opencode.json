@@ -1,0 +1,40 @@
+{
+  "$schema": "https://opencode.ai/schemas/opencode.json",
+  "version": "1.0",
+  "description": "Spring Boot Platform Agents - vendor-neutral AI engineering platform",
+  "instructions": [
+    {
+      "file": "./AGENTS.md",
+      "description": "Orchestration rules for playbooks, agents, and skills"
+    }
+  ],
+  "agentRouting": {
+    "plan": {
+      "description": "Load architect agent and relevant playbook for planning mode",
+      "instructions": [
+        "assets/AGENTS.md",
+        "agents/architect.md",
+        "standards/architecture-standard.md",
+        "standards/coding-standard.md"
+      ]
+    },
+    "build": {
+      "description": "Load implementation-engineer and test-engineer for building",
+      "instructions": [
+        "agents/implementation-engineer.md",
+        "agents/test-engineer.md",
+        "standards/coding-standard.md",
+        "standards/engineering-standard.md"
+      ]
+    },
+    "review": {
+      "description": "Load code-reviewer for pull request review",
+      "instructions": [
+        "agents/code-reviewer.md",
+        "agents/security-engineer.md",
+        "standards/coding-standard.md",
+        "standards/architecture-standard.md"
+      ]
+    }
+  }
+}
