@@ -12,7 +12,7 @@
     "plan": {
       "description": "Load architect agent and relevant playbook for planning mode",
       "instructions": [
-        "assets/AGENTS.md",
+        "./AGENTS.md",
         "agents/architect.md",
         "standards/architecture-standard.md",
         "standards/coding-standard.md"
@@ -21,6 +21,7 @@
     "build": {
       "description": "Load implementation-engineer and test-engineer for building",
       "instructions": [
+        "./AGENTS.md",
         "agents/implementation-engineer.md",
         "agents/test-engineer.md",
         "standards/coding-standard.md",
@@ -30,10 +31,45 @@
     "review": {
       "description": "Load code-reviewer for pull request review",
       "instructions": [
+        "./AGENTS.md",
         "agents/code-reviewer.md",
         "agents/security-engineer.md",
         "standards/coding-standard.md",
         "standards/architecture-standard.md"
+      ]
+    },
+    "security": {
+      "description": "Load security-engineer for vulnerability assessment and CVE remediation",
+      "instructions": [
+        "./AGENTS.md",
+        "agents/security-engineer.md",
+        "standards/coding-standard.md",
+        "playbooks/fix-cve.md"
+      ]
+    },
+    "test": {
+      "description": "Load test-engineer for comprehensive test generation",
+      "instructions": [
+        "./AGENTS.md",
+        "agents/test-engineer.md",
+        "standards/engineering-standard.md"
+      ]
+    },
+    "perf": {
+      "description": "Load performance-engineer for optimization analysis",
+      "instructions": [
+        "./AGENTS.md",
+        "agents/performance-engineer.md",
+        "standards/architecture-standard.md"
+      ]
+    },
+    "sre": {
+      "description": "Load sre-engineer for operations contract definition",
+      "instructions": [
+        "./AGENTS.md",
+        "agents/sre-engineer.md",
+        "skills/observability/micrometer-prometheus.md",
+        "skills/observability/opentelemetry.md"
       ]
     }
   }

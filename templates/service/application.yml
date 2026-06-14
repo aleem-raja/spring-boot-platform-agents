@@ -1,67 +1,154 @@
+server:
+  port: 8080
+  shutdown: graceful
+
 spring:
   application:
     name: {{service-name}}
   threads:
     virtual:
       enabled: true
-  datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/{{service-name}}}
-    username: ${SPRING_DATASOURCE_USERNAME:service}
-    password: ${SPRING_DATASOURCE_PASSWORD:service}
-    hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+      indent-output: false
+    deserialization:
+      fail-on-unknown-properties: false
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
+        format_sql: true
         jdbc:
-          batch_size: 25
+          batch_size: 50
+          fetch_size: 100
         order_inserts: true
         order_updates: true
-  flyway:
-    enabled: true
-    clean-disabled: true
-    baseline-on-migrate: true
-
-server:
-  shutdown: graceful
+  datasource:
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 300000
+      connection-timeout: 5000
+      max-lifetime: 600000
+      leak-detection-threshold: 30000
+  kafka:
+    producer:
+      properties:
+        enable.idempotence: true
+        acks: all
+        compression.type: snappy
+    consumer:
+      properties:
+        isolation.level: read_committed
+        auto.offset.reset: earliest
+        enable.auto.commit: false
+  cache:
+    type: redis
+    redis:
+      time-to-live: 10m
+      cache-null-values: false
 
 springdoc:
   api-docs:
-    path: /api-docs
+    path: /v3/api-docs
   swagger-ui:
     path: /swagger-ui.html
     operationsSorter: method
+    tagsSorter: alpha
+  group-configs:
+    - group: v1
+      paths-to-match: /api/v1/**
+    - group: v2
+      paths-to-match: /api/v2/**
 
 management:
+  server:
+    port: 8081
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus,startup
+        include: health,info,metrics,prometheus
+      base-path: /actuator
   endpoint:
     health:
+      show-details: when-authorized
+      show-components: when-authorized
       probes:
         enabled: true
-      show-details: when-authorized
+    metrics:
+      enabled: true
+    prometheus:
+      enabled: true
   metrics:
     tags:
       application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slas:
+        http.server.requests: 10ms, 50ms, 100ms, 200ms, 500ms, 1s, 2s
+  info:
+    env:
+      enabled: true
+  otlp:
+    tracing:
+      endpoint: http://${OTEL_EXPORTER_OTLP_ENDPOINT:localhost:4318}
 
 logging:
-  pattern:
-    level: "%5p [%X{traceId:-},%X{spanId:-}]"
+  config: classpath:logback-spring.xml
   level:
-    com.example: INFO
+    com.example: DEBUG
+    org.springframework: WARN
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
+    org.apache.kafka: WARN
 
-otel:
-  service:
-    name: ${spring.application.name}
-  exporter:
-    otlp:
-      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}
-  traces:
-    sampler: parentbased_traceidratio
-    sampler.arg: 0.1
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+
+server:
+  port: 8080
+
+spring:
+  jpa:
+    show-sql: true
+  datasource:
+    hikari:
+      maximum-pool-size: 5
+  kafka:
+    bootstrap-servers: localhost:9092
+
+logging:
+  level:
+    com.example: DEBUG
+    org.springframework.web: DEBUG
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:17:///{{service-name}}
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+logging:
+  level:
+    com.example: DEBUG

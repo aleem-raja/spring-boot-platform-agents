@@ -1,0 +1,65 @@
+# Java
+*.class
+*.jar
+*.war
+target/
+build/
+!.mvn/wrapper/maven-wrapper.jar
+
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+dependency-reduced-pom.xml
+
+# Gradle
+.gradle/
+build/
+gradle-app.setting
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.settings/
+.project
+.classpath
+.factorypath
+*.launch
+.netbeans/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Docker
+.env
+docker-compose.override.yml
+
+# Test output
+test-output/
+
+# Temp files
+*.tmp
+*.swp
+*.swo
+*~
+
+# Environment
+.env.local
+.env.*.local
+*.env
+
+# Secrets
+*.pem
+*.key
+*.cert
+secrets/

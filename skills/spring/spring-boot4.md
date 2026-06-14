@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Develop Spring Boot 4 services using modular JARs, Spring Framework 7, Jakarta EE 11, and Java 25 features.
+Develop Spring Boot 4 services using modular JARs, Spring Framework 7, Jakarta EE 11, and Java 25 features with consistent patterns for configuration, testing, and production operations.
 
 ## When to Use
 
@@ -12,15 +12,199 @@ Develop Spring Boot 4 services using modular JARs, Spring Framework 7, Jakarta E
 
 ## Best Practices
 
-- Use the modular starter approach: import only the specific module starters instead of `spring-boot-starter-web`. Spring Boot 4 splits monolithic starters into focused modules.
-- Use `@SpringBootApplication` with explicit `@EnableAutoConfiguration` for production clarity.
-- Use `@ConfigurationProperties` with `@ConstructorBinding` on records for type-safe, immutable configuration.
-- Use `RestClient` (Spring Framework 7) over `RestTemplate` for synchronous HTTP calls.
-- Use `HttpServiceProxyFactory` for declarative HTTP interfaces instead of manual `RestClient` usage.
-- Use `@NullMarked` on `package-info.java` with JSpecify annotations for compile-time null safety.
-- Use `spring.main.lazy-initialization=false` (default in Boot 4) — eager init catches config errors at startup.
-- Enable virtual threads: `spring.threads.virtual.enabled=true` (default on Java 21+).
-- Use `spring-boot-starter-actuator` for health checks, metrics, and startup profiling.
+### Modular Starters
+
+Spring Boot 4 splits monolithic starters into focused modules. Import only what you need:
+
+```xml
+<!-- Instead of spring-boot-starter-web, pick specific modules: -->
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-web</artifactId>
+    <exclusions>
+        <!-- Replace Tomcat with Undertow or use WebFlux for virtual threads -->
+        <exclusion>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-tomcat</artifactId>
+        </exclusion>
+    </exclusions>
+</dependency>
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-undertow</artifactId>
+</dependency>
+```
+
+### Configuration Properties
+
+Use `@ConfigurationProperties` with `@ConstructorBinding` on records for type-safe, immutable configuration:
+
+```java
+@ConfigurationProperties("order")
+public record OrderProperties(
+    PaymentProvider paymentProvider,
+    int maxItemsPerOrder,
+    Duration defaultTimeout,
+    List<String> supportedCurrencies
+) {
+    public record PaymentProvider(String name, String endpoint) {}
+}
+
+// Enable with:
+@EnableConfigurationProperties(OrderProperties.class)
+```
+
+### Declarative HTTP Clients
+
+```java
+@HttpExchange("/api/v1/inventory")
+public interface InventoryClient {
+    @GetExchange("/stock/{sku}")
+    StockResponse checkStock(@PathVariable String sku);
+
+    @PostExchange("/reserve")
+    ReservationResponse reserve(@RequestBody ReserveRequest request);
+}
+
+// Create client:
+@Bean
+public InventoryClient inventoryClient(RestClient.Builder builder) {
+    var restClient = builder.baseUrl("http://inventory-service").build();
+    return HttpServiceProxyFactory
+        .builderFor(RestClientAdapter.create(restClient))
+        .build()
+        .createClient(InventoryClient.class);
+}
+```
+
+### Testing Slices
+
+Use slice tests to load only the Spring context you need:
+
+```java
+@WebMvcTest(CustomerController.class)
+class CustomerControllerTest {
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockitoBean  // Boot 4 — replaces @MockBean
+    private CustomerService service;
+
+    @Test
+    void shouldReturnCustomer() throws Exception {
+        when(service.findById(any())).thenReturn(new CustomerResponse(...));
+        mockMvc.perform(get("/api/v1/customers/{id}", UUID.randomUUID()))
+            .andExpect(status().isOk());
+    }
+}
+
+@DataJpaTest
+@AutoConfigureTestDatabase(replace = NONE)  // Use Testcontainers, not H2
+class CustomerRepositoryTest {
+    @Autowired
+    private CustomerRepository repository;
+
+    @Container
+    @ServiceConnection  // Boot 4 — auto-configures datasource from container
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:17");
+}
+```
+
+### Slice Test Reference
+
+| Annotation | Loads | When to Use |
+|---|---|---|
+| `@WebMvcTest` | Controller layer only | Controller logic, security, serialization |
+| `@DataJpaTest` | JPA repositories only | Repository queries, entity mapping |
+| `@JsonTest` | Jackson/GSON only | JSON serialization/deserialization |
+| `@RestClientTest` | REST client only | Declarative HTTP client testing |
+| `@WebFluxTest` | WebFlux controllers | Reactive controller testing |
+| `@SpringBootTest` | Full application context | End-to-end flows |
+
+### Profiles
+
+```yaml
+# application.yml (defaults for all profiles)
+spring:
+  jpa:
+    open-in-view: false
+
+---
+# application-dev.yml
+spring:
+  devtools:
+    restart:
+      enabled: true
+  jpa:
+    show-sql: true
+  datasource:
+    hikari:
+      maximum-pool-size: 5
+
+---
+# application-docker.yml
+spring:
+  datasource:
+    url: jdbc:postgresql://db:5432/service
+  kafka:
+    bootstrap-servers: kafka:9092
+
+---
+# application-cloud.yml
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 20
+```
+
+Profile hierarchy: `application.yml` (base) → profile-specific (`application-{profile}.yml`) → `@TestPropertySource` → `@DynamicPropertySource` (tests).
+
+### Startup Optimization
+
+```yaml
+spring:
+  main:
+    lazy-initialization: false  # default in Boot 4 — fail fast on missing deps
+    allow-circular-references: false
+  jpa:
+    hibernate:
+      ddl-auto: validate  # never update/create in production
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+```
+
+### Graceful Shutdown
+
+```yaml
+server:
+  shutdown: graceful
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+```
+
+This waits for in-flight requests to complete before shutting down. Configure `tomcat.connection-timeout` or undertow equivalent for slow clients.
+
+### Custom Health Indicators
+
+```java
+@Component
+public class DatabaseHealthIndicator implements HealthIndicator {
+    private final DataSource dataSource;
+
+    @Override
+    public Health health() {
+        try (var conn = dataSource.getConnection()) {
+            if (conn.isValid(1000)) {
+                return Health.up().build();
+            }
+            return Health.down().withDetail("database", "unreachable").build();
+        } catch (Exception e) {
+            return Health.down(e).build();
+        }
+    }
+}
+```
 
 ## Anti-Patterns
 
@@ -29,42 +213,19 @@ Develop Spring Boot 4 services using modular JARs, Spring Framework 7, Jakarta E
 - Using `RestTemplate` — it will be deprecated. Use `RestClient` or declarative HTTP interfaces.
 - Using field injection with `@Autowired` — use constructor injection with records or final fields.
 - Ignoring JSpecify null warnings — configure `-Werror:null` in the compiler.
-- Using `spring.factories` for auto-configuration — use `AutoConfiguration.imports` (required since Boot 3, still valid in Boot 4).
+- Using `spring.factories` for auto-configuration — use `AutoConfiguration.imports` (required since Boot 3, valid in Boot 4).
+- `@SpringBootTest` for every test — use slice tests (`@WebMvcTest`, `@DataJpaTest`) for faster feedback.
+- `spring.jpa.open-in-view=true` (default) — disable OSIV to prevent Hibernate session in view layer.
 
-## Examples
+## Application Checklist
 
-**application.yml:**
-```yaml
-spring:
-  application:
-    name: customer-service
-  threads:
-    virtual:
-      enabled: true
-  jackson:
-    default-property-inclusion: non_null
-    serialization:
-      write-dates-as-timestamps: false
-```
-
-**Configuration properties:**
-```java
-@ConfigurationProperties("customer")
-public record CustomerProperties(
-    String defaultRegion,
-    int maxAddressesPerCustomer,
-    Duration cacheTtl
-) {}
-
-// Enable with:
-// @EnableConfigurationProperties(CustomerProperties.class)
-```
-
-**Declarative HTTP client:**
-```java
-@HttpExchange("/api/v1/orders")
-public interface OrderServiceClient {
-    @GetExchange("/{orderId}")
-    OrderResponse getOrder(@PathVariable UUID orderId);
-}
-```
+- `@ConfigurationProperties` with records for all configuration groups
+- `RestClient` or declarative HTTP interfaces for all HTTP calls
+- Slice tests where possible (`@WebMvcTest`, `@DataJpaTest`, `@JsonTest`)
+- Virtual threads enabled (`spring.threads.virtual.enabled=true`)
+- Graceful shutdown configured
+- `spring.jpa.open-in-view=false`
+- Custom health indicators for critical dependencies
+- Profile-specific configuration for dev/docker/cloud
+- Modular starters (not monolithic `spring-boot-starter-web`)
+- `spring.main.lazy-initialization=false` for fail-fast startup

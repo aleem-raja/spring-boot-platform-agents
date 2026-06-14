@@ -57,17 +57,21 @@ Build maintainable production-grade Spring Boot services.
 |---|---|
 | `skills/api/` | Designing API contracts and versioning |
 | `skills/architecture/` | Designing service structure |
-| `skills/java/` | Writing Java code |
-| `skills/spring/` | Using Spring Boot features |
-| `skills/persistence/` | Working with databases |
-| `skills/testing/` | Writing tests |
-| `skills/security/` | Implementing security |
-| `skills/observability/` | Adding monitoring |
+| `skills/caching/` | Configuring and using caches |
 | `skills/cicd/` | Configuring CI/CD |
 | `skills/deployment/` | Deploying services |
 | `skills/documentation/` | Generating docs |
 | `skills/git/` | Managing version control |
+| `skills/java/` | Writing Java code |
+| `skills/messaging/` | Working with events and message brokers |
 | `skills/modernization/` | Upgrading dependencies |
+| `skills/observability/` | Adding monitoring |
+| `skills/persistence/` | Working with databases |
+| `skills/resilience/` | Adding circuit breakers, retries, and bulkheads |
+| `skills/security/` | Implementing security |
+| `skills/spring/` | Using Spring Boot features |
+| `skills/testing/` | Writing tests |
+| `skills/validation/` | Validating request data |
 
 ## Rules
 

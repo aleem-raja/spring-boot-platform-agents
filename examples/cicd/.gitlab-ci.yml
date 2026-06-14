@@ -1,0 +1,100 @@
+stages:
+  - validate
+  - test
+  - build
+  - docker
+  - deploy
+
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository -Dorg.slf4j.simpleLogger.log.org.apache.maven.plugins.shade=warn"
+  MAVEN_CLI_OPTS: "--batch-mode --no-transfer-progress"
+  IMAGE_TAG: $CI_COMMIT_SHORT_SHA
+
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Dependency-Scanning.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - .m2/repository/
+
+.validate:
+  stage: validate
+  image: maven:3.9-eclipse-temurin-25
+  script:
+    - mvn $MAVEN_CLI_OPTS validate
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+.test:
+  stage: test
+  image: maven:3.9-eclipse-temurin-25
+  services:
+    - docker:dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  script:
+    - mvn $MAVEN_CLI_OPTS test
+  artifacts:
+    reports:
+      junit: target/surefire-reports/TEST-*.xml
+
+.build:
+  stage: build
+  image: maven:3.9-eclipse-temurin-25
+  script:
+    - mvn $MAVEN_CLI_OPTS package -DskipTests
+  artifacts:
+    paths:
+      - target/*.jar
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+.docker:
+  stage: docker
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  script:
+    - /kaniko/executor
+      --context $CI_PROJECT_DIR
+      --dockerfile $CI_PROJECT_DIR/Dockerfile
+      --destination $CI_REGISTRY_IMAGE:$IMAGE_TAG
+      --destination $CI_REGISTRY_IMAGE:latest
+      --cache=true
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+.deploy-staging:
+  stage: deploy
+  image: bitnami/kubectl:1.32
+  script:
+    - kubectl set image deployment/{{service-name}} {{service-name}}=$CI_REGISTRY_IMAGE:$IMAGE_TAG -n staging
+    - kubectl rollout status deployment/{{service-name}} -n staging --timeout=3m
+  environment:
+    name: staging
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+.deploy-production:
+  stage: deploy
+  image: bitnami/kubectl:1.32
+  script:
+    - kubectl set image deployment/{{service-name}} {{service-name}}=$CI_REGISTRY_IMAGE:$IMAGE_TAG -n production
+    - kubectl rollout status deployment/{{service-name}} -n production --timeout=5m
+  environment:
+    name: production
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+      when: manual
+      allow_failure: false
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
