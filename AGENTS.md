@@ -55,6 +55,7 @@ Build maintainable production-grade Spring Boot services.
 
 | Category | Load When |
 |---|---|
+| `skills/api/` | Designing API contracts and versioning |
 | `skills/architecture/` | Designing service structure |
 | `skills/java/` | Writing Java code |
 | `skills/spring/` | Using Spring Boot features |

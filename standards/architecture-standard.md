@@ -32,11 +32,14 @@ com.example.service
 
 ## API Design
 
-- Version all REST APIs via URL prefix (/api/v1/).
-- Use OpenAPI 3.1 specification for all endpoints.
+- Version all REST APIs via URL prefix (/api/v1/, /api/v2/). See `skills/api/api-versioning.md` for full versioning strategy, deprecation policy, and evolution rules.
+- Use OpenAPI 3.1 specification for all endpoints. Use SpringDoc group-configs to document multiple active versions.
 - Prefer RESTful resource-oriented APIs over RPC-style endpoints.
-- Use pagination for all collection endpoints (cursor-based for high-volume).
+- Use pagination for all collection endpoints (cursor-based for high-volume, offset-based for low-volume).
 - Use problem+json RFC 9457 for error responses.
+- Breaking changes require a major version bump. Additive changes (new fields, new endpoints) are safe within the current version.
+- Deprecated endpoints must include Sunset and Deprecation headers, a migration link, and a sunset date at least 6 months out (12 months for public APIs).
+- Never remove a version with active traffic. Monitor metrics before sunsetting.
 
 ## Persistence Rules
 
