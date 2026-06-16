@@ -15,7 +15,7 @@ Works with **OpenCode**, **Claude Code**, **Codex**, **Cursor**, **Gemini CLI**,
 
 ```bash
 # Clone alongside your service repo
-git clone https://github.com/anomalyco/spring-boot-platform-agents.git .agents
+git clone https://github.com/aleem-raja/spring-boot-platform-agents.git .agents
 ```
 
 ### 2. Start your AI coding agent
